@@ -1,0 +1,166 @@
+# 🏦 私人对冲基金自动化分析系统
+
+基于 **AWS Bedrock Claude + Notion** 的量化分析自动化工作流，每周自动执行 9 类分析任务并写入 Notion 数据库。
+
+---
+
+## 📁 项目结构
+
+```
+us-stock-assist/
+├── main.py                    # 主入口 + 调度器
+├── claude_runner.py           # AWS Bedrock Converse API 调用封装
+├── notion_writer.py           # Notion API 写入封装
+├── tools.py                   # 工具定义（Tavily / yfinance / FRED / SEC）
+├── notion_setup.py            # 一键创建所有 Notion 数据库
+├── notion_fix_properties.py   # 修复已有 Notion 数据库字段
+├── requirements.txt
+├── config/
+│   ├── config.yaml            # 真实配置（已 gitignore，含密钥）
+│   └── config-example.yaml   # 配置模板（提交到 git）
+├── prompts/
+│   └── prompts.yaml           # 各任务提示词
+├── results/                   # 本地结果缓存 (JSON，已 gitignore)
+└── logs/                      # 运行日志（已 gitignore）
+```
+
+---
+
+## ⚡ 快速开始
+
+### 1. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. 配置
+
+复制配置模板并填写密钥：
+
+```bash
+cp config/config-example.yaml config/config.yaml
+```
+
+编辑 `config/config.yaml`，填写以下内容：
+
+| 字段 | 获取方式 |
+|------|---------|
+| `notion.token` | https://www.notion.so/my-integrations → New integration |
+| `claude.aws_access_key_id` / `aws_secret_access_key` | AWS IAM → 创建具有 Bedrock 权限的用户 |
+| `tools.tavily_api_key` | https://app.tavily.com |
+| `tools.fred_api_key` | https://fredaccount.stlouisfed.org（免费） |
+
+### 3. 创建 Notion 数据库
+
+在 Notion 中创建一个父页面，将 Integration 添加为成员，然后运行：
+
+```bash
+python notion_setup.py --parent-page-id <父页面ID>
+```
+
+脚本会自动创建全部 8 个数据库并将 ID 回填到 `config.yaml`。
+
+> **父页面 ID**：从页面 URL 中复制，例如 `notion.so/My-Page-31ea21c66c98...` 中的 `31ea21c66c98...`
+
+### 4. 运行
+
+```bash
+# 立即执行指定任务（测试用）
+python main.py --task weekly_report
+
+# 查看所有可用任务
+python main.py --list
+
+# 启动调度器（按 cron 计划自动运行）
+python main.py
+```
+
+---
+
+## 📊 Notion 数据库设计
+
+| 数据库 | key | 主要字段 |
+|--------|-----|---------|
+| 📅 每周综合报告 | `weekly_report` | 报告标题、日期、编辑寄语、做多/做空标的 |
+| 🌍 宏观面分析 | `macro_analysis` | 分析标题、收益率曲线状态、偏好行业、3个月展望 |
+| 🔍 内部人士买入 | `insider_buying` | 标的、买入金额、价格变化%、为何重要 |
+| 🚀 空头挤压候选 | `short_squeeze` | 标的、空头比例%、平仓天数、催化剂 |
+| 🎯 并购雷达 | `ma_radar` | 标的、行业、收购溢价%、监管风险、交易概率 |
+| 💡 情绪套利 | `sentiment_arb` | 标的、负面情绪原因、基本面优势、持有周期 |
+| 🏛️ 机构持仓变化 | `institutional` | 标的、信号类型、买入基金、总仓位规模 |
+| ⚠️ 分红危险雷达 | `dividend_danger` | 标的、当前股息率%、派息比率%、降息概率 |
+
+---
+
+## ⏰ 默认调度计划
+
+| 任务 | 执行时间（上海时区） |
+|------|-------------------|
+| 📅 每周报告 | 每周一 07:30 |
+| 🌍 宏观分析 | 每周一 08:00 |
+| 🔍 内部人士买入 | 每周一 08:30 |
+| 🚀 空头挤压 | 每周二 09:00 |
+| 🎯 并购雷达 | 每周二 09:30 |
+| 💡 情绪套利 | 每周三 09:00 |
+| 🔗 关联性分析 | 每周三 09:30 |
+| ⚠️ 分红危险 | 每周四 09:00 |
+| 🏛️ 机构持仓 | 每周四 09:30 |
+
+---
+
+## 🖥️ 服务器部署（长期运行）
+
+### 方式一：screen（简单）
+```bash
+screen -S quant
+python main.py
+# Ctrl+A, D 挂起
+```
+
+### 方式二：systemd 服务（推荐）
+```bash
+# /etc/systemd/system/quant-analyst.service
+[Unit]
+Description=Quant Analyst Auto System
+After=network.target
+
+[Service]
+User=your_user
+WorkingDirectory=/path/to/us-stock-assist
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+sudo systemctl enable quant-analyst
+sudo systemctl start quant-analyst
+```
+
+---
+
+## 🔧 常见问题
+
+**Q: Notion 写入报错 "is not a property that exists"**
+- `notion-client` 3.x 存在 bug，`databases.create()` 会静默丢弃 properties
+- 使用 `notion_fix_properties.py` 修复（内部使用原始 httpx 调用绕过此 bug）：
+  ```bash
+  python notion_fix_properties.py          # 修复所有数据库
+  python notion_fix_properties.py --db weekly_report  # 修复指定数据库
+  ```
+
+**Q: AWS Bedrock 调用失败？**
+- 确认 IAM 用户有 `bedrock:InvokeModel` 权限
+- 确认 `region` 设置与开通 Bedrock 的区域一致
+
+**Q: Notion 写入 403 错误？**
+- 确认父页面已将 Integration 添加为成员（Connections）
+- 用 `notion_setup.py` 创建的数据库自动继承权限，手动创建的需手动共享
+
+---
+
+## ⚠️ 免责声明
+
+本系统输出内容仅供参考，不构成任何投资建议。AI 分析可能存在错误，请结合自身判断独立决策。
+

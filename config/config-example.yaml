@@ -1,0 +1,60 @@
+notion:
+  token: YOUR_NOTION_TOKEN              # https://www.notion.so/my-integrations
+  databases:
+    weekly_report: YOUR_DATABASE_ID
+    macro_analysis: YOUR_DATABASE_ID
+    insider_buying: YOUR_DATABASE_ID
+    short_squeeze: YOUR_DATABASE_ID
+    ma_radar: YOUR_DATABASE_ID
+    sentiment_arb: YOUR_DATABASE_ID
+    institutional: YOUR_DATABASE_ID
+    dividend_danger: YOUR_DATABASE_ID
+
+claude:
+  model_id: au.anthropic.claude-haiku-4-5-20251001-v1:0
+  region: ap-southeast-2
+  max_tokens: 4000
+  max_tool_rounds: 10
+  timeout_seconds: 300
+  aws_access_key_id: YOUR_AWS_ACCESS_KEY_ID
+  aws_secret_access_key: YOUR_AWS_SECRET_ACCESS_KEY
+
+tools:
+  tavily_api_key: YOUR_TAVILY_API_KEY   # https://app.tavily.com
+  fred_api_key: YOUR_FRED_API_KEY       # https://fredaccount.stlouisfed.org
+
+scheduler:
+  timezone: Asia/Shanghai
+  tasks:
+  - name: weekly_report
+    cron: 30 7 * * 1
+  - name: macro_analysis
+    cron: 0 8 * * 1
+  - name: insider_buying
+    cron: 30 8 * * 1
+  - name: short_squeeze
+    cron: 0 9 * * 2
+  - name: ma_radar
+    cron: 30 9 * * 2
+  - name: sentiment_arbitrage
+    cron: 0 9 * * 3
+  - name: correlation_map
+    cron: 30 9 * * 3
+  - name: dividend_danger
+    cron: 0 9 * * 4
+  - name: institutional_positioning
+    cron: 30 9 * * 4
+
+portfolio:
+  exposure: 科技股(40%), 消费股(30%), 现金(20%), 黄金ETF(10%)
+  base_currency: USD
+  total_value_usd: 100000
+
+notifications:
+  enabled: false
+  feishu_webhook: ''
+  email: ''
+
+storage:
+  results_dir: ./results
+  keep_days: 90

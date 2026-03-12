@@ -1,0 +1,23 @@
+# AWS
+boto3>=1.34.0
+
+# Notion
+notion-client>=2.2.1
+
+# 调度
+schedule>=1.2.1
+PyYAML>=6.0.1
+
+# Tool: 联网搜索
+tavily-python>=0.3.0
+
+# Tool: 股票/市场数据
+yfinance>=0.2.40
+pandas-ta>=0.3.14b
+
+# Tool: 宏观数据
+fredapi>=0.5.1
+
+# 基础
+pandas>=2.0.0
+requests>=2.31.0
