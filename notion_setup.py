@@ -205,6 +205,12 @@ DATABASE_SCHEMAS = {
             "止损价":   {"number": {"format": "dollar"}},
             "目标价":   {"number": {"format": "dollar"}},
             "盈亏比":   {"number": {"format": "number"}},
+            "主要驱动": {"select": {"options": [
+                {"name": "催化剂驱动", "color": "blue"},
+                {"name": "技术突破",   "color": "green"},
+                {"name": "技术破位",   "color": "red"},
+                {"name": "两者兼具",   "color": "purple"},
+            ]}},
             "投资逻辑": {"rich_text": {}},
             "催化剂":   {"rich_text": {}},
             "持有周期": {"select": {"options": [
@@ -300,11 +306,28 @@ def main():
         help="Notion 父页面 ID（从页面 URL 中复制，例如 https://notion.so/My-Page-<ID>）"
     )
     parser.add_argument(
+        "--only",
+        nargs="+",
+        metavar="DB_KEY",
+        help=f"只创建指定的数据库（空格分隔多个），可选值：{', '.join(DATABASE_SCHEMAS.keys())}"
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
-        help="强制重新创建所有数据库，包括 config.yaml 中已有 ID 的（默认跳过已有 ID 的）"
+        help="强制重新创建数据库，包括 config.yaml 中已有 ID 的（默认跳过已有 ID 的）"
     )
     args = parser.parse_args()
+
+    # 验证 --only 参数
+    if args.only:
+        unknown = [k for k in args.only if k not in DATABASE_SCHEMAS]
+        if unknown:
+            print(f"❌ 未知的数据库 key：{', '.join(unknown)}")
+            print(f"   可选值：{', '.join(DATABASE_SCHEMAS.keys())}")
+            sys.exit(1)
+        target_schemas = {k: DATABASE_SCHEMAS[k] for k in args.only}
+    else:
+        target_schemas = DATABASE_SCHEMAS
 
     # 读取配置
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -316,12 +339,13 @@ def main():
     client = Client(auth=token)
     parent_page_id = normalize_page_id(args.parent_page_id)
 
-    print(f"\n🚀 开始创建 Notion 数据库（父页面: {parent_page_id}）\n")
+    scope_hint = f"（仅创建: {', '.join(args.only)}）" if args.only else f"（共 {len(target_schemas)} 个）"
+    print(f"\n🚀 开始创建 Notion 数据库 {scope_hint}\n")
 
     created = {}
     errors = []
 
-    for key, schema in DATABASE_SCHEMAS.items():
+    for key, schema in target_schemas.items():
         current_val = existing_ids.get(key, "")
         if not args.force and current_val and current_val != "YOUR_DATABASE_ID":
             print(f"  跳过 {key}（已有 ID: {current_val}）")

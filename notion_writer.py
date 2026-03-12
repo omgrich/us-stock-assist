@@ -286,15 +286,19 @@ class NotionWriter:
 
         sentiment = data.get("sentiment", {})
         market_context = data.get("market_context", "")
-        regime = sentiment.get("regime", "")
-        regime_note = sentiment.get("regime_implication", "")
-        sentiment_summary = f"VIX {sentiment.get('vix_current','')} | {sentiment.get('fear_greed_label','')}({sentiment.get('fear_greed_index','')}) | P/C {sentiment.get('put_call_ratio','')} | {regime_note}"
+        calibration = sentiment.get("calibration_note", "无调整")
+        sentiment_summary = (
+            f"VIX {sentiment.get('vix_current','')} | "
+            f"{sentiment.get('fear_greed_label','')}({sentiment.get('fear_greed_index','')}) | "
+            f"P/C {sentiment.get('put_call_ratio','')} | 校准: {calibration}"
+        )
 
         for idea in [data.get("long_idea", {}), data.get("short_idea", {})]:
             if not idea.get("ticker"):
                 continue
             direction = idea.get("direction", "多")
             icon = "📈" if direction == "多" else "📉"
+            primary_driver = idea.get("primary_driver", "")
             properties = {
                 "标的":     self._title(f"{icon} {idea.get('ticker','')} - {idea.get('company_name', '')}"),
                 "分析日期": self._date(data.get("analysis_date", "")),
@@ -304,11 +308,12 @@ class NotionWriter:
                 "止损价":   self._number(idea.get("stop_loss", 0)),
                 "目标价":   self._number(idea.get("target_price", 0)),
                 "盈亏比":   self._number(idea.get("risk_reward_ratio", 0)),
+                "主要驱动": self._select(primary_driver),
                 "投资逻辑": self._text(idea.get("thesis", "")),
                 "催化剂":   self._text(idea.get("catalyst", "")),
                 "持有周期": self._select(idea.get("time_horizon", "")),
                 "技术信号": self._text(idea.get("technical_signal", "")),
-                "大盘背景": self._text(f"{market_context} | 情绪: {sentiment_summary}"),
+                "大盘背景": self._text(f"{market_context} | 情绪参考: {sentiment_summary}"),
                 "来源":     self._url(idea.get("source_url", "")),
             }
             self._create_page(db_id, properties)
